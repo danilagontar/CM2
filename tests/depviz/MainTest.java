@@ -61,6 +61,8 @@ class MainTest {
         assertEquals(Main.EXIT_OK, run("--test-mode", "--repo", repo.toString(), "--package", "A"));
         assertTrue(out().contains("B -> A, C"));
         assertTrue(out().contains("Циклические зависимости:"));
+        assertTrue(out().contains("Порядок загрузки"));
+        assertTrue(out().contains("3. A"));
     }
 
     @Test

@@ -35,6 +35,10 @@ public final class DependencyGraph {
         return nodes.values();
     }
 
+    public PackageRef node(String id) {
+        return nodes.get(id);
+    }
+
     public Set<String> dependencies(String id) {
         return edges.get(id);
     }

@@ -47,7 +47,10 @@ public final class Main {
                 return EXIT_OK;
             }
             Config config = new ConfigFactory().create(options);
-            out.print(GraphFormatter.adjacencyList(buildGraph(config)));
+            DependencyGraph graph = buildGraph(config);
+            out.print(GraphFormatter.adjacencyList(graph));
+            out.println();
+            out.print(GraphFormatter.loadOrder(graph));
             return EXIT_OK;
         } catch (ConfigException e) {
             err.println("Ошибка: " + e.getMessage());
