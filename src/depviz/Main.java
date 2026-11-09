@@ -5,13 +5,18 @@ import depviz.config.Config;
 import depviz.config.ConfigException;
 import depviz.config.ConfigFactory;
 import depviz.config.Option;
-import depviz.nuget.Dependency;
-import depviz.nuget.DependencyGroup;
+import depviz.graph.DependencyGraph;
+import depviz.graph.GraphBuilder;
+import depviz.graph.GraphFormatter;
+import depviz.graph.PackageRef;
+import depviz.graph.PackageSource;
 import depviz.nuget.NuGetRepository;
+import depviz.nuget.NuGetSource;
 import depviz.nuget.RepositoryException;
+import depviz.testrepo.TestRepository;
 
 import java.io.PrintStream;
-import java.util.List;
+import java.nio.file.Path;
 import java.util.Map;
 
 /**
@@ -42,7 +47,7 @@ public final class Main {
                 return EXIT_OK;
             }
             Config config = new ConfigFactory().create(options);
-            printDirectDependencies(config, out);
+            out.print(GraphFormatter.adjacencyList(buildGraph(config)));
             return EXIT_OK;
         } catch (ConfigException e) {
             err.println("Ошибка: " + e.getMessage());
@@ -54,26 +59,22 @@ public final class Main {
         }
     }
 
-    private static void printDirectDependencies(Config config, PrintStream out) throws RepositoryException {
-        if (config.source().testMode()) {
-            throw new RepositoryException("работа с тестовым репозиторием пока не реализована");
-        }
-        NuGetRepository repository = new NuGetRepository(config.source().location());
-        List<DependencyGroup> groups = repository.directDependencies(config.packageName(), config.version());
-        out.println("Прямые зависимости пакета " + config.packageName() + " " + config.version() + ":");
-        if (groups.isEmpty()) {
-            out.println("  нет зависимостей");
-        }
-        for (DependencyGroup group : groups) {
-            printGroup(group, out);
-        }
+    private static DependencyGraph buildGraph(Config config) throws RepositoryException {
+        GraphBuilder builder = new GraphBuilder(createSource(config),
+                config.analysis().maxDepth(), config.analysis().filter());
+        return builder.build(new PackageRef(config.packageName(), config.version()));
     }
 
-    private static void printGroup(DependencyGroup group, PrintStream out) {
-        String framework = group.targetFramework().isEmpty() ? "любой фреймворк" : group.targetFramework();
-        out.println("  [" + framework + "]" + (group.dependencies().isEmpty() ? " нет зависимостей" : ""));
-        for (Dependency dependency : group.dependencies()) {
-            out.println("    " + dependency.id() + " " + dependency.versionRange());
+    private static PackageSource createSource(Config config) throws RepositoryException {
+        String location = config.source().location();
+        if (!config.source().testMode()) {
+            return new NuGetSource(new NuGetRepository(location));
         }
+        TestRepository repository = TestRepository.load(Path.of(location));
+        if (!repository.contains(config.packageName())) {
+            throw new RepositoryException("Пакет " + config.packageName() + " не описан в тестовом репозитории "
+                    + location);
+        }
+        return repository;
     }
 }

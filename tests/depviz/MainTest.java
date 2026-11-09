@@ -2,10 +2,13 @@ package depviz;
 
 import depviz.nuget.FakeNuGetServer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,17 +18,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class MainTest {
 
-    private static final String NUSPEC = """
+    private static final String DEMO_NUSPEC = """
             <package><metadata><dependencies>
               <group targetFramework="net8.0">
-                <dependency id="Serilog" version="4.0.0" />
+                <dependency id="Serilog" version="[4.0.0, )" />
               </group>
-              <group targetFramework="net462" />
             </dependencies></metadata></package>
             """;
+    private static final String SERILOG_NUSPEC = "<package><metadata></metadata></package>";
 
     private final ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
     private final ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
+
+    @TempDir
+    Path tempDir;
 
     private int run(String... args) {
         PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
@@ -33,16 +39,34 @@ class MainTest {
         return Main.run(args, out, err);
     }
 
+    private String out() {
+        return outBytes.toString(StandardCharsets.UTF_8);
+    }
+
     @Test
-    void printsDirectDependencies() throws Exception {
-        try (FakeNuGetServer server = new FakeNuGetServer().add("/demo/2.1.0/demo.nuspec", NUSPEC)) {
+    void printsTransitiveGraphFromNuGet() throws Exception {
+        try (FakeNuGetServer server = new FakeNuGetServer()
+                .add("/demo/2.1.0/demo.nuspec", DEMO_NUSPEC)
+                .add("/serilog/4.0.0/serilog.nuspec", SERILOG_NUSPEC)) {
             int code = run("--package", "Demo", "--package-version", "2.1.0", "--repo", server.baseUrl());
-            String out = outBytes.toString(StandardCharsets.UTF_8);
             assertEquals(Main.EXIT_OK, code);
-            assertTrue(out.contains("[net8.0]"));
-            assertTrue(out.contains("    Serilog 4.0.0"));
-            assertTrue(out.contains("[net462] нет зависимостей"));
+            assertTrue(out().contains("Demo 2.1.0 -> Serilog"));
+            assertTrue(out().contains("Serilog 4.0.0 -> нет зависимостей"));
         }
+    }
+
+    @Test
+    void printsGraphFromTestRepository() throws Exception {
+        Path repo = Files.writeString(tempDir.resolve("repo.txt"), "A: B\nB: A C\n");
+        assertEquals(Main.EXIT_OK, run("--test-mode", "--repo", repo.toString(), "--package", "A"));
+        assertTrue(out().contains("B -> A, C"));
+        assertTrue(out().contains("Циклические зависимости:"));
+    }
+
+    @Test
+    void reportsPackageMissingInTestRepository() throws Exception {
+        Path repo = Files.writeString(tempDir.resolve("repo.txt"), "A: B\n");
+        assertEquals(Main.EXIT_REPOSITORY_ERROR, run("--test-mode", "--repo", repo.toString(), "--package", "Z"));
     }
 
     @Test
@@ -57,7 +81,7 @@ class MainTest {
     @Test
     void printsHelp() {
         assertEquals(Main.EXIT_OK, run("--help"));
-        assertTrue(outBytes.toString(StandardCharsets.UTF_8).contains("--max-depth"));
+        assertTrue(out().contains("--max-depth"));
     }
 
     @Test

@@ -55,9 +55,12 @@ public final class NuGetRepository {
 
     /**
      * NuGet хранит пакеты под нормализованной версией: без ведущих нулей, минимум три числа,
-     * четвёртое число убирается, если оно равно нулю. Например, {@code 1.0 -> 1.0.0}, {@code 1.02.3.0 -> 1.2.3}.
+     * четвёртое число убирается, если оно равно нулю, метаданные сборки после «+» отбрасываются.
+     * Например, {@code 1.0 -> 1.0.0}, {@code 1.02.3.0 -> 1.2.3}.
      */
-    static String normalizeVersion(String version) {
+    static String normalizeVersion(String fullVersion) {
+        int plus = fullVersion.indexOf('+');
+        String version = plus < 0 ? fullVersion : fullVersion.substring(0, plus);
         int dash = version.indexOf('-');
         String release = dash < 0 ? version : version.substring(0, dash);
         String suffix = dash < 0 ? "" : version.substring(dash);

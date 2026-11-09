@@ -1,0 +1,11 @@
+# «Приложение» с библиотеками; удобно проверять --filter, например --filter TEST
+APP: WEB DATA TESTKIT
+WEB: HTTP JSON
+DATA: SQL JSON
+TESTKIT: MOCK ASSERT
+HTTP: NET
+SQL: NET
+JSON:
+NET:
+MOCK: ASSERT
+ASSERT:
