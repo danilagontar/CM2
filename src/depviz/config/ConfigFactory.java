@@ -29,11 +29,7 @@ public final class ConfigFactory {
     private static final Pattern VERSION = Pattern.compile("\\d+(\\.\\d+){1,3}(-[0-9A-Za-z.-]+)?");
 
     /**
-     * Создаёт конфигурацию из разобранных параметров.
-     *
-     * @param options значения параметров, полученные от {@link ArgsParser}
-     * @return проверенная конфигурация
-     * @throws ConfigException если значение какого-либо параметра некорректно
+     * Проверяет все параметры и собирает из них конфигурацию.
      */
     public Config create(Map<Option, String> options) throws ConfigException {
         boolean testMode = options.containsKey(Option.TEST_MODE);

@@ -17,10 +17,6 @@ public final class ArgsParser {
 
     /**
      * Разбирает аргументы вида {@code --имя значение} и {@code --имя=значение}.
-     *
-     * @param args аргументы, переданные в {@code main}
-     * @return значения параметров
-     * @throws ConfigException если параметр неизвестен, повторяется или у него нет значения
      */
     public Map<Option, String> parse(String[] args) throws ConfigException {
         Map<Option, String> result = new EnumMap<>(Option.class);

@@ -1,5 +1,6 @@
 package depviz;
 
+import depviz.nuget.FakeNuGetServer;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -14,6 +15,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class MainTest {
 
+    private static final String NUSPEC = """
+            <package><metadata><dependencies>
+              <group targetFramework="net8.0">
+                <dependency id="Serilog" version="4.0.0" />
+              </group>
+              <group targetFramework="net462" />
+            </dependencies></metadata></package>
+            """;
+
     private final ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
     private final ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
 
@@ -24,15 +34,24 @@ class MainTest {
     }
 
     @Test
-    void printsAllParametersAsKeyValue() {
-        int code = run("--package", "Newtonsoft.Json", "--package-version", "13.0.3", "--filter", "Test");
-        String out = outBytes.toString(StandardCharsets.UTF_8);
-        assertEquals(Main.EXIT_OK, code);
-        for (String key : new String[] {"package", "package-version", "repo", "test-mode",
-            "output", "ascii-tree", "max-depth", "filter"}) {
-            assertTrue(out.contains("  " + key + " = "), "нет ключа " + key);
+    void printsDirectDependencies() throws Exception {
+        try (FakeNuGetServer server = new FakeNuGetServer().add("/demo/2.1.0/demo.nuspec", NUSPEC)) {
+            int code = run("--package", "Demo", "--package-version", "2.1.0", "--repo", server.baseUrl());
+            String out = outBytes.toString(StandardCharsets.UTF_8);
+            assertEquals(Main.EXIT_OK, code);
+            assertTrue(out.contains("[net8.0]"));
+            assertTrue(out.contains("    Serilog 4.0.0"));
+            assertTrue(out.contains("[net462] нет зависимостей"));
         }
-        assertTrue(out.contains("filter = Test"));
+    }
+
+    @Test
+    void reportsRepositoryError() throws Exception {
+        try (FakeNuGetServer server = new FakeNuGetServer()) {
+            int code = run("--package", "Demo", "--package-version", "9.9.9", "--repo", server.baseUrl());
+            assertEquals(Main.EXIT_REPOSITORY_ERROR, code);
+            assertTrue(errBytes.toString(StandardCharsets.UTF_8).contains("не найден"));
+        }
     }
 
     @Test
@@ -42,7 +61,7 @@ class MainTest {
     }
 
     @Test
-    void reportsErrorWithExitCode() {
+    void reportsConfigErrorWithExitCode() {
         assertEquals(Main.EXIT_CONFIG_ERROR, run("--package", "X", "--max-depth", "-1"));
         assertTrue(errBytes.toString(StandardCharsets.UTF_8).startsWith("Ошибка:"));
     }

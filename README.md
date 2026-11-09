@@ -5,8 +5,21 @@
 без готовых менеджеров пакетов и сторонних библиотек.
 
 Это практическая работа № 2 по «Конфигурационному управлению», вариант 4.
-Сейчас готов первый этап: программа принимает настройки из командной строки, проверяет их
-и печатает, что получилось.
+Сейчас готовы два этапа: программа принимает настройки из командной строки и показывает
+прямые зависимости пакета из настоящего репозитория NuGet.
+
+## Как программа узнаёт зависимости
+
+У каждого пакета NuGet есть файл описания `.nuspec` (это XML). Программа скачивает его
+с репозитория по адресу `{repo}/{имя}/{версия}/{имя}.nuspec` и сама разбирает: берёт
+список `<dependency>` из блока `<dependencies>`.
+
+Зависимости в NuGet разные для разных версий .NET (например, для `net6.0` пакету может
+ничего не требоваться, а для старого `netstandard1.0` нужен десяток пакетов). Поэтому
+программа выводит их по группам, как они записаны в `.nuspec`.
+
+Если пакет или версия не найдены или нет связи с репозиторием, программа так и пишет
+и завершается с кодом 3.
 
 ## Настройки
 
@@ -42,7 +55,8 @@ C: D
 D:
 ```
 
-Готовый пример лежит в [examples/basic.txt](examples/basic.txt).
+Готовый пример лежит в [examples/basic.txt](examples/basic.txt). Читать такие файлы программа
+научится на третьем этапе, пока она только проверяет, что файл существует.
 
 ## Сборка и тесты
 
@@ -58,28 +72,36 @@ make clean   # удалить всё, что получилось при сбо�
 
 ## Примеры
 
-Посмотреть, какие настройки получились:
-
-```bash
-./run.sh --package Newtonsoft.Json --package-version 13.0.3 --ascii-tree --max-depth 3 --filter Test
-```
+Прямые зависимости пакета:
 
 ```
-Параметры запуска:
-  package = Newtonsoft.Json
-  package-version = 13.0.3
-  repo = https://api.nuget.org/v3-flatcontainer
-  test-mode = false
-  output = graph.svg
-  ascii-tree = true
-  max-depth = 3
-  filter = Test
+$ ./run.sh --package Serilog.Sinks.Console --package-version 6.0.0
+Прямые зависимости пакета Serilog.Sinks.Console 6.0.0:
+  [.NETFramework4.6.2]
+    Serilog 4.0.0
+  [.NETFramework4.7.1]
+    Serilog 4.0.0
+  [net6.0]
+    Serilog 4.0.0
+  [net8.0]
+    Serilog 4.0.0
+  [.NETStandard2.0]
+    Serilog 4.0.0
 ```
 
-То же самое с тестовым файлом:
+Пакет, у которого зависимости есть только для старых фреймворков (вывод сокращён):
 
-```bash
-./run.sh --test-mode --repo examples/basic.txt --package A
+```
+$ ./run.sh --package Newtonsoft.Json --package-version 13.0.3
+Прямые зависимости пакета Newtonsoft.Json 13.0.3:
+  [.NETFramework4.5] нет зависимостей
+  [.NETStandard1.0]
+    Microsoft.CSharp 4.3.0
+    NETStandard.Library 1.6.1
+    System.ComponentModel.TypeConverter 4.3.0
+    System.Runtime.Serialization.Primitives 4.3.0
+  [net6.0] нет зависимостей
+  ...
 ```
 
 А так выглядят ошибки:
@@ -88,6 +110,6 @@ make clean   # удалить всё, что получилось при сбо�
 $ ./run.sh --package Newtonsoft.Json
 Ошибка: Не задана версия пакета: укажите --package-version <версия>, например 13.0.3
 
-$ ./run.sh --package Newtonsoft.Json --package-version 13.0.3 --max-depth zero
-Ошибка: Максимальная глубина должна быть целым числом: 'zero'
+$ ./run.sh --package Newtonsoft.Json --package-version 99.0.0
+Ошибка: Пакет Newtonsoft.Json версии 99.0.0 не найден в репозитории https://api.nuget.org/v3-flatcontainer
 ```
