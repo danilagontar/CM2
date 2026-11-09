@@ -9,6 +9,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,10 +34,21 @@ class MainTest {
     @TempDir
     Path tempDir;
 
-    private int run(String... args) {
+    /**
+     * Запускает приложение с картинкой во временном каталоге; вместо d2 вызывается команда {@code true},
+     * чтобы тесты не зависели от установленной утилиты.
+     */
+    private int runWith(String d2Command, String... args) {
         PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
         PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8);
-        return Main.run(args, out, err);
+        String[] all = Arrays.copyOf(args, args.length + 2);
+        all[args.length] = "--output";
+        all[args.length + 1] = tempDir.resolve("graph.svg").toString();
+        return Main.run(all, out, err, d2Command);
+    }
+
+    private int run(String... args) {
+        return runWith("true", args);
     }
 
     private String out() {
@@ -61,8 +73,24 @@ class MainTest {
         assertEquals(Main.EXIT_OK, run("--test-mode", "--repo", repo.toString(), "--package", "A"));
         assertTrue(out().contains("B -> A, C"));
         assertTrue(out().contains("Циклические зависимости:"));
-        assertTrue(out().contains("Порядок загрузки"));
-        assertTrue(out().contains("3. A"));
+        assertTrue(Files.readString(tempDir.resolve("graph.d2")).contains("\"B\" -> \"A\": цикл"));
+    }
+
+    @Test
+    void printsAsciiTreeWhenRequested() throws Exception {
+        Path repo = Files.writeString(tempDir.resolve("repo.txt"), "A: B C\nB: C\n");
+        assertEquals(Main.EXIT_OK, run("--test-mode", "--repo", repo.toString(), "--package", "A", "--ascii-tree"));
+        assertTrue(out().contains("├── B"));
+        assertTrue(out().contains("└── C (*)"));
+    }
+
+    @Test
+    void reportsMissingD2() throws Exception {
+        Path repo = Files.writeString(tempDir.resolve("repo.txt"), "A: B\n");
+        int code = runWith("no-such-d2-command", "--test-mode", "--repo", repo.toString(), "--package", "A");
+        assertEquals(Main.EXIT_RENDER_ERROR, code);
+        assertTrue(errBytes.toString(StandardCharsets.UTF_8).contains("d2"));
+        assertTrue(Files.exists(tempDir.resolve("graph.d2")));
     }
 
     @Test

@@ -31,22 +31,6 @@ public final class GraphFormatter {
         return sb.toString();
     }
 
-    /**
-     * Нумерованный порядок загрузки; при циклах добавляется предупреждение, что порядок для них условный.
-     */
-    public static String loadOrder(DependencyGraph graph) {
-        StringBuilder sb = new StringBuilder("Порядок загрузки (сначала зависимости, затем зависящие от них):")
-                .append(NL);
-        int number = 1;
-        for (PackageRef pkg : LoadOrder.of(graph)) {
-            sb.append(String.format("  %3d. %s%n", number++, pkg.label()));
-        }
-        if (!graph.cycleEdges().isEmpty()) {
-            sb.append("Внимание: в графе есть циклы, для пакетов из них правильного порядка не существует.").append(NL);
-        }
-        return sb.toString();
-    }
-
     private static String describe(DependencyGraph graph, String id) {
         if (!graph.isExpanded(id)) {
             return "(не раскрыт: достигнута максимальная глубина)";

@@ -1,0 +1,3 @@
+# Скрипты для Windows должны храниться с переводами строк CRLF, для Unix – с LF
+*.bat text eol=crlf
+*.sh text eol=lf
